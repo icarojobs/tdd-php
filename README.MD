@@ -26,6 +26,16 @@ $ jobs config
 
 ### STARTUP PROJECT
 ```bash
-$ ./jobs init
+$ jobs init
+```
+
+### SHUTDOWN CONTAINERS
+```bash
+$ jobs down
+```
+
+### OPEN PROJECT
+```bash
+http://dev.test
 ```
 

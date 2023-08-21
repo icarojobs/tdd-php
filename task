@@ -5,6 +5,11 @@ define('JOBS_START', microtime(true));
 
 require __DIR__.'/vendor/autoload.php';
 
+echo PHP_EOL;
+echo "Executing Task Script..." . PHP_EOL;
+//
+print_r($argv);
+
 /*
 |--------------------------------------------------------------------------
 | Register All Dependencies
@@ -16,3 +21,8 @@ require __DIR__.'/vendor/autoload.php';
 
 // Example
 //$app = require_once __DIR__ . '/config/your-file.php';
+
+
+
+echo PHP_EOL;
+echo "Task script finished!" . PHP_EOL;

@@ -162,6 +162,20 @@ elif [ "$1" == "test" ]; then
     else
         jobs_is_not_running
     fi
+
+# Task Script
+elif [ "$1" == "task" ]; then
+  shift 1
+    docker-compose exec -T \
+                               -u jobs \
+                               "$APP_SERVICE" \
+                               php task "$@"
+
+#    docker-compose exec -T \
+#      -u jobs \
+#      "$APP_SERVICE" \
+#      php task "$@"
+
 # Pass unknown commands to the "docker-compose" binary...
 else
     ./vendor/bin/jobs "$@"
