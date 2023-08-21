@@ -1,30 +1,30 @@
 version: '3'
 services:
-  web-server:
+  nginx:
     build:
-      context: ./docker
-      dockerfile: Dockerfile
-      args:
-        WWWGROUP: '${WWWGROUP}'
-    image: jobs-8.2/app
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
-    ports:
-      - '${APP_PORT:-80}:80'
-      - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
-    environment:
-      WWWUSER: '${WWWUSER}'
-      LARAVEL_JOBS: 1
-      XDEBUG_MODE: '${JOBS_XDEBUG_MODE:-off}'
-      XDEBUG_CONFIG: '${JOBS_XDEBUG_CONFIG:-client_host=host.docker.internal}'
-      IGNITION_LOCAL_SITES_PATH: '${PWD}'
+      context: "./docker/nginx"
+    depends_on:
+      - php-fpm
     volumes:
-      - '.:/var/www/html'
+      - ${NGINX_SSL_PATH}:/etc/nginx/ssl
+      - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}${APP_CODE_CONTAINER_FLAG}
+      - ${NGINX_HOST_LOG_PATH}:/var/log/nginx
+      - ${NGINX_SITES_PATH}:/etc/nginx/sites-available
+    ports:
+      - "${NGINX_HOST_HTTPS_PORT}:443"
+      - "${NGINX_HOST_HTTP_PORT}:80"
     networks:
       - jobs
-    depends_on:
-      - db-server
-      - redis
+
+  php-fpm:
+    build:
+      context: "./docker/php-fpm"
+    volumes:
+      - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}${APP_CODE_CONTAINER_FLAG}
+    networks:
+      - jobs
+    expose:
+      - "9000"
 
   db-server:
     image: 'mariadb:latest'

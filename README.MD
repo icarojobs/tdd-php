@@ -26,7 +26,7 @@ $ jobs config
 
 ### STARTUP PROJECT
 ```bash
-$ jobs init
+$ jobs up
 ```
 
 ### SHUTDOWN CONTAINERS

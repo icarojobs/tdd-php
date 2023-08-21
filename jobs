@@ -7,169 +7,197 @@ NC='\033[0m'
 
 # Verify operating system is supported...
 case "${UNAMEOUT}" in
-    Linux*)             MACHINE=linux;;
-    Darwin*)            MACHINE=mac;;
-    *)                  MACHINE="UNKNOWN"
+Linux*) MACHINE=linux ;;
+Darwin*) MACHINE=mac ;;
+*) MACHINE="UNKNOWN" ;;
 esac
 
 if [ "$MACHINE" == "UNKNOWN" ]; then
-    echo "Unsupported operating system [$(uname -s)]. Jobs Script supports macOS, Linux, and Windows (WSL2)." >&2
+  echo "Unsupported operating system [$(uname -s)]. Jobs Script supports macOS, Linux, and Windows (WSL2)." >&2
 
-    exit 1
+  exit 1
 fi
 
 # Define environment variables...
 export APP_PORT=${APP_PORT:-80}
-export APP_SERVICE=${APP_SERVICE:-"web-server"}
+export APP_SERVICE=${APP_SERVICE:-"php-fpm"}
 export DB_PORT=${DB_PORT:-3306}
 export WWWUSER=${WWWUSER:-$UID}
 export WWWGROUP=${WWWGROUP:-$(id -g)}
 
 if [ "$MACHINE" == "linux" ]; then
-    export SEDCMD="sed -i"
+  export SEDCMD="sed -i"
 elif [ "$MACHINE" == "mac" ]; then
-    export SEDCMD="sed -i .bak"
+  export SEDCMD="sed -i .bak"
 fi
 
 # Ensure that Docker is running...
-if ! docker info > /dev/null 2>&1; then
-    echo -e "${WHITE}Docker is not running.${NC}" >&2
+if ! docker info >/dev/null 2>&1; then
+  echo -e "${WHITE}Docker is not running.${NC}" >&2
 
-    exit 1
+  exit 1
 fi
 
 # Determine if Jobs is currently up...
 PSRESULT="$(docker-compose ps -q)"
 
 if docker-compose ps | grep 'Exit'; then
-    echo -e "${WHITE}Shutting down old Jobs Script processes...${NC}" >&2
+  echo -e "${WHITE}Shutting down old Jobs Script processes...${NC}" >&2
 
-    docker-compose down > /dev/null 2>&1
+  docker-compose down >/dev/null 2>&1
 
-    EXEC="no"
+  EXEC="no"
 elif [ -n "$PSRESULT" ]; then
-    EXEC="yes"
+  EXEC="yes"
 else
-    EXEC="no"
+  EXEC="no"
 fi
 
 # Function that outputs Jobs is not running...
 function jobs_is_not_running {
-    echo -e "${WHITE}Jobs is not running.${NC}" >&2
-    echo "" >&2
-    echo -e "${WHITE}You may Jobs using the following commands:${NC} './vendor/bin/jobs up' or './vendor/bin/jobs up -d'" >&2
+  echo -e "${WHITE}Jobs is not running.${NC}" >&2
+  echo "" >&2
+  echo -e "${WHITE}You may Jobs using the following commands:${NC} './vendor/bin/jobs up' or './vendor/bin/jobs up -d'" >&2
 
-    exit 1
+  exit 1
 }
 
 # Function to run test
 retval=-1
 function jobs_test() {
-    if docker-compose exec -T \
-                           -u jobs \
-                           "$APP_SERVICE" \
-                           php bin/jobs.php test "$@"
-    then
-         echo >&2 "Todos os testes passaram!"
-         exit 0
-    else
-         echo >&2 "Falha ao executar os testes."
-         exit 1
-    fi
+  if docker-compose exec -T \
+    -u jobs \
+    "$APP_SERVICE" \
+    php task test "$@"; then
+    echo >&2 "Todos os testes passaram!"
+    exit 0
+  else
+    echo >&2 "Falha ao executar os testes."
+    exit 1
+  fi
 }
 
 # Source the ".env" file so Laravel's environment variables are available...
 if [ -f ./.env ]; then
-    source ./.env
+  source ./.env
 fi
 
 # Proxy Composer command to the "init" option on the core-laravel container...
 if [ "$1" == "config" ]; then
-    shift 1
+  shift 1
 
-    ENVFILE='./.env'
+  ENVFILE='./.env'
 
-    docker run --rm \
+  docker run --rm \
     -u "$(id -u):$(id -g)" \
     -v $(pwd):/var/www/html \
     -w /var/www/html \
     laravelsail/php82-composer:latest \
     composer install --ignore-platform-reqs
 
-    if [ ! -f $ENVFILE ]; then
-        cp .env.example .env
-    fi
+  if [ ! -f $ENVFILE ]; then
+    cp .env.example .env
+  fi
 
-elif [ "$1" == "init" ]; then
-    shift 1
-        sudo sysctl -w vm.max_map_count=524288
-        sudo sysctl -w fs.file-max=131072
+elif [ "$1" == "up" ]; then
+  shift 1
+  sudo sysctl -w vm.max_map_count=524288
+  sudo sysctl -w fs.file-max=131072
 
-        docker-compose up --force-recreate -d
+  docker-compose up --force-recreate -d
 
-        sleep 2
-        ./vendor/bin/captainhook install -f -s
-        echo "CaptainHook was configured successful!" >&2
+  sleep 2
+  ./vendor/bin/captainhook install -f -s
+  echo "CaptainHook was configured successful!" >&2
 
 elif [ "$1" == "ping" ]; then
-    shift 1
-        echo "CaptainHook was configured successful!" >&2
+  shift 1
+  echo "" >&2
+  echo "Pong!" >&2
 
 elif [ "$1" == "build" ]; then
-    shift 1
-        docker-compose build --no-cache
+  shift 1
+  docker-compose build --no-cache
 
 elif [ "$1" == "down" ]; then
-    shift 1
-        docker-compose stop
+  shift 1
+  docker-compose stop
 
 elif [ "$1" == "prod" ]; then
-    shift 1
+  shift 1
 
-        docker-compose -f docker-compose.yml \
-            -f docker-compose.prod.yml \
-            "$@"
+  docker-compose -f docker-compose.yml \
+    -f docker-compose.prod.yml \
+    "$@"
 
 elif [ "$1" == "bin" ]; then
-    shift 1
+  shift 1
 
-    if [ "$EXEC" == "yes" ]; then
-        docker-compose exec -T \
-            -u jobs \
-            "$APP_SERVICE" \
-            ./vendor/bin/"$@"
-    else
-        jobs_is_not_running
-    fi
+  if [ "$EXEC" == "yes" ]; then
+    docker-compose exec -T \
+      -u jobs \
+      "$APP_SERVICE" \
+      ./vendor/bin/"$@"
+  else
+    jobs_is_not_running
+  fi
 
 elif [ "$1" == "npx" ]; then
-    shift 1
+  shift 1
 
-    if [ "$EXEC" == "yes" ]; then
-        docker-compose exec -T \
-            -u jobs \
-            "$APP_SERVICE" \
-            npx "$@"
-    else
-        jobs_is_not_running
-    fi
+  if [ "$EXEC" == "yes" ]; then
+    docker-compose exec -T \
+      -u jobs \
+      "$APP_SERVICE" \
+      npx "$@"
+  else
+    jobs_is_not_running
+  fi
 
 elif [ "$1" == "test" ]; then
-    shift 1
+  shift 1
 
-    if [ "$EXEC" == "yes" ]; then
-        jobs_test
-    else
-        jobs_is_not_running
-    fi
+  if [ "$EXEC" == "yes" ]; then
+    jobs_test
+  else
+    jobs_is_not_running
+  fi
 
 # Task Script
 elif [ "$1" == "task" ]; then
   shift 1
-    docker-compose exec -T \
-                               -u jobs \
-                               "$APP_SERVICE" \
-                               php task "$@"
+  docker-compose exec -T \
+    -u jobs \
+    "$APP_SERVICE" \
+    php task "$@"
+
+elif [ "$1" == "composer" ]; then
+  shift 1
+  docker-compose exec -T \
+    -u jobs \
+    "$APP_SERVICE" \
+    composer "$@"
+
+elif [ "$1" == "node" ]; then
+  shift 1
+  docker-compose exec -T \
+    -u jobs \
+    "$APP_SERVICE" \
+    node "$@"
+
+elif [ "$1" == "npm" ]; then
+  shift 1
+  docker-compose exec -T \
+    -u jobs \
+    "$APP_SERVICE" \
+    npm "$@"
+
+elif [ "$1" == "npx" ]; then
+  shift 1
+  docker-compose exec -T \
+    -u jobs \
+    "$APP_SERVICE" \
+    npm "$@"
 
 #    docker-compose exec -T \
 #      -u jobs \
@@ -178,5 +206,5 @@ elif [ "$1" == "task" ]; then
 
 # Pass unknown commands to the "docker-compose" binary...
 else
-    ./vendor/bin/jobs "$@"
+  ./vendor/bin/jobs "$@"
 fi
