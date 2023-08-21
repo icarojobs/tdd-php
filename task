@@ -1,0 +1,18 @@
+#!/usr/bin/env php
+<?php
+
+define('JOBS_START', microtime(true));
+
+require __DIR__.'/vendor/autoload.php';
+
+/*
+|--------------------------------------------------------------------------
+| Register All Dependencies
+|--------------------------------------------------------------------------
+|
+| Load all dependencies for the project
+|
+*/
+
+// Example
+//$app = require_once __DIR__ . '/config/your-file.php';
